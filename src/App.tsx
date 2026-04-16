@@ -13,6 +13,7 @@ import Directory from "./pages/dashboard/Directory";
 import MemberProfile from "./pages/dashboard/MemberProfile";
 import Finances from "./pages/dashboard/Finances";
 import AddPackage from "./pages/dashboard/AddPackage";
+import AddGroup from "./pages/dashboard/AddGroup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ function AppRoutes() {
       <Route path="/dashboard/member/:userId" element={<MemberProfile />} />
       <Route path="/dashboard/finances" element={<Finances />} />
       <Route path="/dashboard/add-package" element={<AddPackage />} />
+      <Route path="/dashboard/add-group" element={<AddGroup />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

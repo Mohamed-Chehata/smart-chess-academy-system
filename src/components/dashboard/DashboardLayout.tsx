@@ -13,6 +13,7 @@ import {
   UserCog,
   Wallet,
   Package as PackageIcon,
+  UsersRound,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -34,6 +35,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const adminLinks = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Add Coach", href: "/dashboard/add-coach", icon: UserCog },
+    { name: "Add Group", href: "/dashboard/add-group", icon: UsersRound },
     { name: "Add Player", href: "/dashboard/add-player", icon: UserPlus },
     { name: "Add Package", href: "/dashboard/add-package", icon: PackageIcon },
     { name: "Member Directory", href: "/dashboard/directory", icon: Users },

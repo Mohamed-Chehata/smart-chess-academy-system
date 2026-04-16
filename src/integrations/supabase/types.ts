@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      groups: {
+        Row: {
+          id: string
+          name: string
+          monthly_fee: number
+          description: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          monthly_fee: number
+          description?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          monthly_fee?: number
+          description?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      group_coaches: {
+        Row: {
+          id: string
+          group_id: string
+          coach_id: string
+          assigned_at: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          coach_id: string
+          assigned_at?: string
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          coach_id?: string
+          assigned_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_coaches_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_coaches_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       packages: {
         Row: {
           id: string
@@ -73,6 +139,7 @@ export type Database = {
           parent_name: string | null
           phone_number: string | null
           role: string
+          group_id: string | null
           updated_at: string
           user_id: string
         }
@@ -90,6 +157,7 @@ export type Database = {
           parent_name?: string | null
           phone_number?: string | null
           role: string
+          group_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -107,6 +175,7 @@ export type Database = {
           parent_name?: string | null
           phone_number?: string | null
           role?: string
+          group_id?: string | null
           updated_at?: string
           user_id?: string
         }

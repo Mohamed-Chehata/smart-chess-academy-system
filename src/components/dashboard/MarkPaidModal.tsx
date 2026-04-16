@@ -78,7 +78,30 @@ const MarkPaidModal = ({
     enabled: open,
   });
 
+  // Fetch this student's group monthly fee (if any)
+  const { data: studentGroup } = useQuery({
+    queryKey: ["groups", student.group_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("id", student.group_id!)
+        .single();
+      if (error) throw error;
+      return data as { id: string; name: string; monthly_fee: number };
+    },
+    enabled: open && !!student.group_id,
+  });
+
   const activePackage = activeAssignment?.package ?? null;
+
+  // Priority: existing payment > package price > group monthly fee > empty
+  const resolveDefaultAmount = () => {
+    if (existingPayment) return String(existingPayment.amount);
+    if (activePackage) return String(activePackage.price);
+    if (studentGroup) return String(studentGroup.monthly_fee);
+    return "";
+  };
 
   const {
     register, handleSubmit, control, reset, setValue, formState: { errors },
@@ -86,7 +109,7 @@ const MarkPaidModal = ({
     resolver: zodResolver(markPaidSchema),
     defaultValues: {
       payment_frequency: existingPayment?.payment_frequency ?? (activePackage ? "package" : "monthly"),
-      amount: existingPayment ? String(existingPayment.amount) : (activePackage ? String(activePackage.price) : ""),
+      amount: resolveDefaultAmount(),
       notes: existingPayment?.notes ?? "",
     },
   });
@@ -96,14 +119,10 @@ const MarkPaidModal = ({
     if (!open) return;
     reset({
       payment_frequency: existingPayment?.payment_frequency ?? (activePackage ? "package" : "monthly"),
-      amount: existingPayment
-        ? String(existingPayment.amount)
-        : activePackage
-        ? String(activePackage.price)
-        : "",
+      amount: resolveDefaultAmount(),
       notes: existingPayment?.notes ?? "",
     });
-  }, [open, existingPayment, activePackage, reset]);
+  }, [open, existingPayment, activePackage, studentGroup, reset]);
 
   const markPaidMutation = useMutation({
     mutationFn: async (values: MarkPaidFormValues) => {
@@ -201,6 +220,19 @@ const MarkPaidModal = ({
               </p>
             </div>
             <Badge variant="default" className="ml-auto shrink-0">Active package</Badge>
+          </div>
+        )}
+
+        {/* Group fee hint (shown when no package) */}
+        {!activePackage && studentGroup && (
+          <div className="flex items-center gap-3 rounded-lg bg-muted p-3">
+            <span className="text-gold text-base shrink-0">👥</span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{studentGroup.name}</p>
+              <p className="text-xs text-muted-foreground">
+                Group fee: {formatCurrency(studentGroup.monthly_fee)} / month
+              </p>
+            </div>
           </div>
         )}
 

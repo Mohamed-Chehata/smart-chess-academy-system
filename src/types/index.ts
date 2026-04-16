@@ -30,9 +30,32 @@ export interface Profile {
   parent_name: string | null;
   address: string | null;
   memo: string | null;
+  group_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// ─── Groups ───────────────────────────────────────────────────────────────────
+export interface Group {
+  id: string;
+  name: string;
+  monthly_fee: number;
+  description: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Links one coach (profile) to one group. */
+export interface GroupCoach {
+  id: string;
+  group_id: string;
+  coach_id: string;
+  assigned_at: string;
+  // Optionally joined
+  coach?: Profile;
+  group?: Group;
 }
 
 export interface Transaction {

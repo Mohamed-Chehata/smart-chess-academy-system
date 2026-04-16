@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -21,8 +21,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import {
   UserPlus, Mail, User, MapPin, Award,
-  TrendingUp, ExternalLink, Phone, Home, Users, FileText,
+  TrendingUp, ExternalLink, Phone, Home, Users, FileText, UsersRound,
 } from "lucide-react";
+import type { Group } from "@/types";
 
 const playerSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
@@ -39,6 +40,7 @@ const playerSchema = z.object({
   parentName: z.string().optional(),
   address: z.string().optional(),
   memo: z.string().optional(),
+  groupId: z.string().optional(),
 });
 
 type PlayerFormValues = z.infer<typeof playerSchema>;
@@ -47,6 +49,15 @@ const AddPlayer = () => {
   const { isAdmin, isCoach, profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const { data: groups = [] } = useQuery({
+    queryKey: ["groups"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("groups").select("*").order("name");
+      if (error) throw error;
+      return data as Group[];
+    },
+  });
 
   const {
     register,
@@ -67,6 +78,7 @@ const AddPlayer = () => {
       parentName: "",
       address: "",
       memo: "",
+      groupId: undefined,
     },
   });
 
@@ -86,6 +98,7 @@ const AddPlayer = () => {
         parent_name: values.parentName || null,
         address: values.address || null,
         memo: values.memo || null,
+        group_id: values.groupId || null,
         created_by: profile?.id ?? null,
       });
       if (error) throw new Error(error.message);
@@ -232,6 +245,32 @@ const AddPlayer = () => {
                 <h3 className="text-sm font-medium text-muted-foreground mb-4">Optional Information</h3>
 
                 <div className="space-y-4">
+                  {/* Group */}
+                  <div className="space-y-2">
+                    <Label htmlFor="groupId">Group</Label>
+                    <div className="relative">
+                      <UsersRound className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                      <Controller
+                        name="groupId"
+                        control={control}
+                        render={({ field }) => (
+                          <Select value={field.value ?? ""} onValueChange={(v) => field.onChange(v === "none" ? undefined : v)}>
+                            <SelectTrigger className="pl-10">
+                              <SelectValue placeholder="Assign to a group (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No group</SelectItem>
+                              {groups.map((g) => (
+                                <SelectItem key={g.id} value={g.id}>
+                                  {g.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                  </div>
                   {/* FIDE ID */}
                   <div className="space-y-2">
                     <Label htmlFor="fideId">FIDE ID</Label>
