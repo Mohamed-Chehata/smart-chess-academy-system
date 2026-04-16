@@ -1,0 +1,4 @@
+project_id = "ovoaanizpovwsodmliol"
+
+[functions.admin-create-user]
+verify_jwt = false
