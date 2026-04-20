@@ -27,6 +27,7 @@ export interface Profile {
   branch: Branch | null;
   fide_id: string | null;
   level: Level | null;
+  birth_date: string | null;   // DATE as YYYY-MM-DD
   parent_name: string | null;
   address: string | null;
   memo: string | null;
@@ -56,6 +57,28 @@ export interface GroupCoach {
   // Optionally joined
   coach?: Profile;
   group?: Group;
+}
+
+// ─── Attendance & Comments ────────────────────────────────────────────────────
+export interface Attendance {
+  id: string;
+  player_id: string;
+  session_date: string;   // DATE as YYYY-MM-DD
+  is_present: boolean;
+  notes: string | null;
+  recorded_by: string | null;
+  created_at: string;
+}
+
+/** One progress comment per player per month. */
+export interface PlayerComment {
+  id: string;
+  player_id: string;
+  month: string;          // DATE — first day of the month
+  comment: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Transaction {

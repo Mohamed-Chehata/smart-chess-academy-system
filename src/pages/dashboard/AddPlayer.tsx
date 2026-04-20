@@ -21,12 +21,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import {
   UserPlus, Mail, User, MapPin, Award,
-  TrendingUp, ExternalLink, Phone, Home, Users, FileText, UsersRound,
+  TrendingUp, ExternalLink, Phone, Home, Users, FileText, UsersRound, Calendar,
 } from "lucide-react";
 import type { Group } from "@/types";
 
 const playerSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
+  birthDate: z.string().min(1, "Birth date is required"),
   email: z.string().optional().refine(
     (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
     { message: "Invalid email address" }
@@ -70,6 +71,7 @@ const AddPlayer = () => {
     resolver: zodResolver(playerSchema),
     defaultValues: {
       fullName: "",
+      birthDate: "",
       email: "",
       branch: undefined,
       level: undefined,
@@ -93,6 +95,7 @@ const AddPlayer = () => {
         role: "player",
         branch: values.branch,
         level: values.level,
+        birth_date: values.birthDate || null,
         fide_id: values.fideId || null,
         phone_number: values.phoneNumber || null,
         parent_name: values.parentName || null,
@@ -165,6 +168,24 @@ const AddPlayer = () => {
                 </div>
                 {errors.fullName && (
                   <p className="text-sm text-destructive">{errors.fullName.message}</p>
+                )}
+              </div>
+
+              {/* Birth Date */}
+              <div className="space-y-2">
+                <Label htmlFor="birthDate">Date of Birth *</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="birthDate"
+                    type="date"
+                    {...register("birthDate")}
+                    className="pl-10"
+                    max={new Date().toISOString().split("T")[0]}
+                  />
+                </div>
+                {errors.birthDate && (
+                  <p className="text-sm text-destructive">{errors.birthDate.message}</p>
                 )}
               </div>
 

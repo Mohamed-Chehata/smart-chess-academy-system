@@ -14,6 +14,7 @@ import {
   Wallet,
   Package as PackageIcon,
   UsersRound,
+  ClipboardList,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -39,12 +40,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: "Add Player", href: "/dashboard/add-player", icon: UserPlus },
     { name: "Add Package", href: "/dashboard/add-package", icon: PackageIcon },
     { name: "Member Directory", href: "/dashboard/directory", icon: Users },
+    { name: "Player Directory", href: "/dashboard/players", icon: ClipboardList },
     { name: "Finances", href: "/dashboard/finances", icon: Wallet },
   ];
 
   const coachLinks = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Add Player", href: "/dashboard/add-player", icon: UserPlus },
+    { name: "Player Directory", href: "/dashboard/players", icon: ClipboardList },
     { name: "My Players", href: "/dashboard/directory", icon: Users },
   ];
 

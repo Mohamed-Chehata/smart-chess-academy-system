@@ -127,6 +127,7 @@ export type Database = {
       profiles: {
         Row: {
           address: string | null
+          birth_date: string | null
           branch: string | null
           created_at: string
           created_by: string | null
@@ -145,6 +146,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          birth_date?: string | null
           branch?: string | null
           created_at?: string
           created_by?: string | null
@@ -163,6 +165,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          birth_date?: string | null
           branch?: string | null
           created_at?: string
           created_by?: string | null
@@ -325,6 +328,83 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "packages"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+    }
+      attendance: {
+        Row: {
+          id: string
+          player_id: string
+          session_date: string
+          is_present: boolean
+          notes: string | null
+          recorded_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          player_id: string
+          session_date: string
+          is_present?: boolean
+          notes?: string | null
+          recorded_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          player_id?: string
+          session_date?: string
+          is_present?: boolean
+          notes?: string | null
+          recorded_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      player_comments: {
+        Row: {
+          id: string
+          player_id: string
+          month: string
+          comment: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          player_id: string
+          month: string
+          comment: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          player_id?: string
+          month?: string
+          comment?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_comments_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           }
         ]

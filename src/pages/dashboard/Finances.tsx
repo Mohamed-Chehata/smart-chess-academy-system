@@ -59,6 +59,7 @@ import {
   TRANSACTION_TYPE_LABELS,
 } from "@/constants/enums";
 import MemberPaymentsSection from "@/components/dashboard/MemberPaymentsSection";
+import GroupPaymentsSection from "@/components/dashboard/GroupPaymentsSection";
 import type { Transaction, TransactionCategory } from "@/types";
 
 const formatCurrency = (amount: number) =>
@@ -352,6 +353,10 @@ const Finances = () => {
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
+              </Table>
+              {/* Scrollable body — shows 5 rows (~56px each) then scrolls */}
+              <div className="overflow-y-auto max-h-[280px]">
+              <Table>
                 <TableBody>
                   {filtered.map((t) => (
                     <TableRow key={t.id}>
@@ -422,10 +427,16 @@ const Finances = () => {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Group payments tracker for the viewed month */}
+      <div className="mt-8">
+        <GroupPaymentsSection currentMonth={currentMonth} />
+      </div>
 
       {/* Member payments for the viewed month */}
       <div className="mt-8">

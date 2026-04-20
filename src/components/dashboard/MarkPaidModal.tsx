@@ -140,7 +140,9 @@ const MarkPaidModal = ({
           type: "income",
           category: "frais_inscription",
           amount,
-          description: values.notes || null,
+          description: values.notes
+            ? `${student.full_name} — ${values.notes}`
+            : student.full_name,
         })
         .select("id")
         .single();

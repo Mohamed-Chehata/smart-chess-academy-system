@@ -32,6 +32,7 @@ const formatCurrency = (amount: number) =>
 const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
   const [markPaidStudent, setMarkPaidStudent] = useState<Profile | null>(null);
 
   const billingPeriodStr = format(startOfMonth(currentMonth), "yyyy-MM-dd");
@@ -113,13 +114,19 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
     onError: () => toast.error("Failed to reverse payment"),
   });
 
-  const filtered = players.filter((p) =>
-    p.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    p.email.toLowerCase().includes(search.toLowerCase())
+  // Base counts (before status filter, after search)
+  const searched = players.filter((p) =>
+    p.full_name.toLowerCase().includes(search.toLowerCase())
   );
+  const paidCount   = searched.filter((p) =>  !!paymentByStudent[p.id]).length;
+  const unpaidCount = searched.filter((p) => !paymentByStudent[p.id]).length;
 
-  const paidCount = filtered.filter((p) => !!paymentByStudent[p.id]).length;
-  const unpaidCount = filtered.length - paidCount;
+  // Apply status filter on top
+  const filtered = searched.filter((p) => {
+    if (statusFilter === "paid")   return  !!paymentByStudent[p.id];
+    if (statusFilter === "unpaid") return !paymentByStudent[p.id];
+    return true;
+  });
   const isLoading = playersLoading || paymentsLoading;
 
   const existingPaymentForModal = markPaidStudent
@@ -130,24 +137,52 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users2 className="w-5 h-5 text-gold" />
-                Member Payments — {format(currentMonth, "MMMM yyyy")}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">
-                {paidCount} paid · {unpaidCount} unpaid
-              </p>
+          <div className="flex flex-col gap-3">
+            {/* Title row */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users2 className="w-5 h-5 text-gold" />
+                  Member Payments — {format(currentMonth, "MMMM yyyy")}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {paidCount} paid · {unpaidCount} unpaid
+                </p>
+              </div>
+              <div className="relative w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search students..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
             </div>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search students..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-9"
-              />
+
+            {/* Status filter pills */}
+            <div className="flex gap-2">
+              {(["all", "paid", "unpaid"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all capitalize ${
+                    statusFilter === s
+                      ? s === "paid"
+                        ? "bg-green-100 border-green-500 text-green-700"
+                        : s === "unpaid"
+                        ? "bg-red-100 border-destructive text-destructive"
+                        : "bg-gold/10 border-gold text-gold"
+                      : "border-border text-muted-foreground hover:border-foreground/30"
+                  }`}
+                >
+                  {s === "all"
+                    ? `All (${paidCount + unpaidCount})`
+                    : s === "paid"
+                    ? `Paid (${paidCount})`
+                    : `Unpaid (${unpaidCount})`}
+                </button>
+              ))}
             </div>
           </div>
         </CardHeader>
@@ -158,8 +193,8 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
           ) : filtered.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">No students found.</div>
           ) : (
-            <div className="divide-y divide-border">
-              {/* Unpaid first, then paid */}
+            <div className="overflow-y-auto max-h-[640px] divide-y divide-border">
+              {/* Unpaid first, then paid — max 8 rows (~80px each) then scrolls */}
               {[...filtered]
                 .sort((a, b) => {
                   const aPaid = !!paymentByStudent[a.id];
