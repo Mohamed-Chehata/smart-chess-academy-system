@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   format, startOfMonth, endOfMonth, isWithinInterval,
@@ -60,6 +60,7 @@ import {
 } from "@/constants/enums";
 import MemberPaymentsSection from "@/components/dashboard/MemberPaymentsSection";
 import GroupPaymentsSection from "@/components/dashboard/GroupPaymentsSection";
+import QuickTransactionBar, { type TxTemplate } from "@/components/dashboard/QuickTransactionBar";
 import type { Transaction, TransactionCategory } from "@/types";
 
 const formatCurrency = (amount: number) =>
@@ -99,10 +100,29 @@ const Finances = () => {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [quickPrefill, setQuickPrefill] = useState<TxTemplate | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
+
+  // ── Scroll position persistence ────────────────────────────────────────────
+  const SCROLL_KEY = "finances-scroll-y";
+  const didRestoreRef = useRef(false);
+
+  useEffect(() => {
+    // Restore saved position once after first paint
+    if (!didRestoreRef.current) {
+      didRestoreRef.current = true;
+      const saved = sessionStorage.getItem(SCROLL_KEY);
+      if (saved) {
+        requestAnimationFrame(() => window.scrollTo({ top: parseInt(saved), behavior: "instant" as ScrollBehavior }));
+      }
+    }
+    const onScroll = () => sessionStorage.setItem(SCROLL_KEY, String(Math.round(window.scrollY)));
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["transactions"],
@@ -181,11 +201,19 @@ const Finances = () => {
 
   const openAdd = () => {
     setEditingTransaction(null);
+    setQuickPrefill(null);
     setModalOpen(true);
   };
 
   const openEdit = (t: Transaction) => {
     setEditingTransaction(t);
+    setQuickPrefill(null);
+    setModalOpen(true);
+  };
+
+  const openFromTemplate = (tpl: TxTemplate) => {
+    setEditingTransaction(null);
+    setQuickPrefill(tpl);
     setModalOpen(true);
   };
 
@@ -268,6 +296,9 @@ const Finances = () => {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      {/* Quick Add templates */}
+      <QuickTransactionBar onUse={openFromTemplate} />
 
       {/* Transaction list */}
       <Card>
@@ -448,8 +479,10 @@ const Finances = () => {
         onClose={() => {
           setModalOpen(false);
           setEditingTransaction(null);
+          setQuickPrefill(null);
         }}
         transaction={editingTransaction}
+        prefill={quickPrefill}
         defaultDate={getDefaultDate(currentMonth)}
       />
     </DashboardLayout>

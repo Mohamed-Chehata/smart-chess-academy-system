@@ -63,10 +63,16 @@ interface TransactionModalProps {
   /**
    * Pre-fill the date field (YYYY-MM-DD).
    * Defaults to today when not provided.
-   * Pass the first day of the viewed month so navigating to a past month
-   * and hitting "Add Transaction" pre-selects that month.
    */
   defaultDate?: string;
+  /** Pre-fill fields in CREATE mode (e.g. from a quick-add template) */
+  prefill?: {
+    name?: string;
+    type?: TransactionType;
+    category?: string;
+    amount?: number;
+    description?: string;
+  } | null;
 }
 
 const TransactionModal = ({
@@ -74,6 +80,7 @@ const TransactionModal = ({
   onClose,
   transaction,
   defaultDate,
+  prefill,
 }: TransactionModalProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -114,16 +121,17 @@ const TransactionModal = ({
         description: transaction.description ?? "",
       });
     } else {
+      // Create mode — apply prefill values if a template was used
       reset({
         date: todayOrDefault,
-        type: undefined,
-        category: undefined,
-        amount: "",
-        description: "",
+        type: (prefill?.type ?? undefined) as TransactionType | undefined,
+        category: (prefill?.category ?? undefined) as never,
+        amount: prefill?.amount != null ? String(prefill.amount) : "",
+        description: prefill?.description ?? "",
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transaction, open]);
+  }, [transaction, prefill, open]);
 
   // When type changes (in create mode) reset the category so an incompatible
   // value from a previous selection isn't silently submitted
@@ -180,6 +188,8 @@ const TransactionModal = ({
           <DialogDescription>
             {isEditing
               ? "Update the details of this transaction."
+              : prefill?.name
+              ? `From template "${prefill.name}" — adjust the amount or any field before saving.`
               : "Record a new income or expense for the academy."}
           </DialogDescription>
         </DialogHeader>
