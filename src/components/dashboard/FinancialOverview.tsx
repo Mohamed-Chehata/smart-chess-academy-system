@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useBranch } from "@/contexts/BranchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, CreditCard, Banknote, Loader2 } from "lucide-react";
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
@@ -8,12 +9,15 @@ const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND" }).format(amount);
 
 const FinancialOverview = () => {
+  const { activeBranch } = useBranch();
+
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ["transactions", "summary"],
+    queryKey: ["transactions", "summary", activeBranch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("type, amount, date");
+        .select("type, amount, date")
+        .eq("branch", activeBranch);
       if (error) throw error;
       return data as { type: string; amount: number; date: string }[];
     },

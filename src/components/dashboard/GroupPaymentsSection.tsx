@@ -8,7 +8,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import { UsersRound, TrendingUp } from "lucide-react";
-import type { Group, Profile, StudentPayment } from "@/types";
+import type { Group, Profile, StudentPayment, Branch } from "@/types";
 
 const GROUP_COLORS = [
   "#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#f43f5e",
@@ -20,9 +20,10 @@ const formatCurrency = (amount: number) =>
 
 interface Props {
   currentMonth: Date;
+  activeBranch: Branch;
 }
 
-const GroupPaymentsSection = ({ currentMonth }: Props) => {
+const GroupPaymentsSection = ({ currentMonth, activeBranch }: Props) => {
   const billingPeriodStr = format(startOfMonth(currentMonth), "yyyy-MM-dd");
 
   // Which groups are visible in the chart (empty = all)
@@ -45,21 +46,26 @@ const GroupPaymentsSection = ({ currentMonth }: Props) => {
   // ── Data fetching ────────────────────────────────────────────────────────────
 
   const { data: groups = [], isLoading: groupsLoading } = useQuery({
-    queryKey: ["groups"],
+    queryKey: ["groups", activeBranch],
     queryFn: async () => {
-      const { data, error } = await supabase.from("groups").select("*").order("name");
+      const { data, error } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("branch", activeBranch)
+        .order("name");
       if (error) throw error;
       return data as Group[];
     },
   });
 
   const { data: players = [] } = useQuery({
-    queryKey: ["profiles", "players"],
+    queryKey: ["profiles", "players", activeBranch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("role", "player")
+        .eq("branch", activeBranch)
         .order("full_name");
       if (error) throw error;
       return data as Profile[];

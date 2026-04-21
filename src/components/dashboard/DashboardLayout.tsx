@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useBranch } from "@/contexts/BranchContext";
 import { Button } from "@/components/ui/button";
 import {
   Users,
@@ -15,6 +16,7 @@ import {
   Package as PackageIcon,
   UsersRound,
   ClipboardList,
+  MapPin,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -24,6 +26,7 @@ interface DashboardLayoutProps {
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { profile, signOut, isAdmin, isCoach } = useAuth();
+  const { activeBranch, setActiveBranch, canSwitch } = useBranch();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -78,10 +81,37 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="p-6 border-b border-ivory/10">
+          <div className="p-6 pb-4 border-b border-ivory/10">
             <Link to="/dashboard" className="flex items-center gap-3">
               <img src={logo} alt="Smart Chess Academy" className="h-12" />
             </Link>
+
+            {/* Branch switcher — admins only */}
+            {canSwitch ? (
+              <div className="mt-4 flex rounded-lg overflow-hidden border border-ivory/20">
+                {(["tunis", "sousse"] as const).map((b) => (
+                  <button
+                    key={b}
+                    onClick={() => setActiveBranch(b)}
+                    className={`flex-1 py-2 text-xs font-semibold transition-all capitalize tracking-wide ${
+                      activeBranch === b
+                        ? "bg-gold text-navy-dark"
+                        : "text-ivory/50 hover:text-ivory hover:bg-ivory/10"
+                    }`}
+                  >
+                    {b}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              /* Non-admins see a read-only branch badge */
+              profile?.branch && (
+                <div className="mt-3 flex items-center gap-1.5 text-xs text-ivory/50">
+                  <MapPin className="w-3 h-3" />
+                  <span className="capitalize">{profile.branch} Branch</span>
+                </div>
+              )
+            )}
           </div>
 
           {/* User Info */}
@@ -92,11 +122,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <p className="text-gold text-sm capitalize font-medium">
               {profile?.role || "..."}
             </p>
-            {profile?.branch && (
-              <p className="text-ivory/50 text-xs capitalize mt-1">
-                {profile.branch} Branch
-              </p>
-            )}
           </div>
 
           {/* Navigation */}

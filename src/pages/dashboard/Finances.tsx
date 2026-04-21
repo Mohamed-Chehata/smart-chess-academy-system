@@ -61,6 +61,7 @@ import {
 import MemberPaymentsSection from "@/components/dashboard/MemberPaymentsSection";
 import GroupPaymentsSection from "@/components/dashboard/GroupPaymentsSection";
 import QuickTransactionBar, { type TxTemplate } from "@/components/dashboard/QuickTransactionBar";
+import { useBranch } from "@/contexts/BranchContext";
 import type { Transaction, TransactionCategory } from "@/types";
 
 const formatCurrency = (amount: number) =>
@@ -96,6 +97,7 @@ function buildChartData(transactions: Transaction[]) {
 
 const Finances = () => {
   const { isAdmin } = useAuth();
+  const { activeBranch } = useBranch();
   const queryClient = useQueryClient();
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -125,12 +127,14 @@ const Finances = () => {
   }, []);
 
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ["transactions"],
+    queryKey: ["transactions", activeBranch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("*")
-        .order("date", { ascending: false });
+        .eq("branch", activeBranch)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Transaction[];
     },
@@ -298,7 +302,7 @@ const Finances = () => {
       </Card>
 
       {/* Quick Add templates */}
-      <QuickTransactionBar onUse={openFromTemplate} />
+      <QuickTransactionBar onUse={openFromTemplate} activeBranch={activeBranch} />
 
       {/* Transaction list */}
       <Card>
@@ -392,7 +396,7 @@ const Finances = () => {
                   {filtered.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                        {format(parseISO(t.date), "dd MMM yyyy")}
+                        {format(parseISO(t.date), "dd/MM/yyyy")}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -466,12 +470,12 @@ const Finances = () => {
 
       {/* Group payments tracker for the viewed month */}
       <div className="mt-8">
-        <GroupPaymentsSection currentMonth={currentMonth} />
+        <GroupPaymentsSection currentMonth={currentMonth} activeBranch={activeBranch} />
       </div>
 
       {/* Member payments for the viewed month */}
       <div className="mt-8">
-        <MemberPaymentsSection currentMonth={currentMonth} />
+        <MemberPaymentsSection currentMonth={currentMonth} activeBranch={activeBranch} />
       </div>
 
       <TransactionModal
@@ -484,6 +488,7 @@ const Finances = () => {
         transaction={editingTransaction}
         prefill={quickPrefill}
         defaultDate={getDefaultDate(currentMonth)}
+        activeBranch={activeBranch}
       />
     </DashboardLayout>
   );

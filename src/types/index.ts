@@ -42,6 +42,7 @@ export interface Group {
   id: string;
   name: string;
   monthly_fee: number;
+  branch: Branch;
   description: string | null;
   created_by: string | null;
   created_at: string;
@@ -87,6 +88,7 @@ export interface Transaction {
   amount: number;
   type: TransactionType;
   category: TransactionCategory;
+  branch: Branch;
   date: string;
   description: string | null;
   created_at: string;

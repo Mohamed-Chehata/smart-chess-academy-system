@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useBranch } from "@/contexts/BranchContext";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ type CoachFormValues = z.infer<typeof coachSchema>;
 
 const AddCoach = () => {
   const { isAdmin } = useAuth();
+  const { activeBranch } = useBranch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -50,7 +52,7 @@ const AddCoach = () => {
       email: "",
       password: "",
       phoneNumber: "",
-      branch: undefined,
+      branch: activeBranch,
       fideId: "",
     },
   });

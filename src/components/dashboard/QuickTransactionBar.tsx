@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,7 +13,7 @@ import { Zap, Plus, X, Pencil, Check } from "lucide-react";
 import {
   INCOME_CATEGORIES, EXPENSE_CATEGORIES, TRANSACTION_CATEGORY_LABELS,
 } from "@/constants/enums";
-import type { TransactionType, TransactionCategory } from "@/types";
+import type { TransactionType, TransactionCategory, Branch } from "@/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface TxTemplate {
@@ -25,18 +25,18 @@ export interface TxTemplate {
   description: string;
 }
 
-const STORAGE_KEY = "chess-tx-templates";
+const storageKey = (branch: Branch) => `chess-tx-templates-${branch}`;
 
-const loadTemplates = (): TxTemplate[] => {
+const loadTemplates = (branch: Branch): TxTemplate[] => {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+    return JSON.parse(localStorage.getItem(storageKey(branch)) ?? "[]");
   } catch {
     return [];
   }
 };
 
-const saveTemplates = (list: TxTemplate[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+const saveTemplates = (branch: Branch, list: TxTemplate[]) => {
+  localStorage.setItem(storageKey(branch), JSON.stringify(list));
 };
 
 // ─── Mini form schema ─────────────────────────────────────────────────────────
@@ -56,17 +56,26 @@ type TemplateFormValues = z.infer<typeof templateSchema>;
 interface Props {
   /** Called when the user clicks a template chip — open TransactionModal with this data */
   onUse: (tpl: TxTemplate) => void;
+  /** Active branch — each branch stores its own templates */
+  activeBranch: Branch;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-const QuickTransactionBar = ({ onUse }: Props) => {
-  const [templates, setTemplates] = useState<TxTemplate[]>(loadTemplates);
+const QuickTransactionBar = ({ onUse, activeBranch }: Props) => {
+  const [templates, setTemplates] = useState<TxTemplate[]>(() => loadTemplates(activeBranch));
   const [showForm, setShowForm]   = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Reload templates whenever the user switches branch
+  useEffect(() => {
+    setTemplates(loadTemplates(activeBranch));
+    setShowForm(false);
+    setEditingId(null);
+  }, [activeBranch]);
+
   const persist = (list: TxTemplate[]) => {
     setTemplates(list);
-    saveTemplates(list);
+    saveTemplates(activeBranch, list);
   };
 
   // ── Add / edit form ────────────────────────────────────────────────────────

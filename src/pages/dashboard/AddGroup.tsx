@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useBranch } from "@/contexts/BranchContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,17 +53,19 @@ interface GroupFormModalProps {
 
 const GroupFormModal = ({ open, onClose, editing }: GroupFormModalProps) => {
   const { profile } = useAuth();
+  const { activeBranch } = useBranch();
   const queryClient = useQueryClient();
   const [selectedCoachIds, setSelectedCoachIds] = useState<string[]>([]);
 
-  // Fetch all coaches
+  // Fetch coaches for this branch only
   const { data: coaches = [] } = useQuery({
-    queryKey: ["profiles", "coaches"],
+    queryKey: ["profiles", "coaches", activeBranch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("role", "coach")
+        .eq("branch", activeBranch)
         .order("full_name");
       if (error) throw error;
       return data as Profile[];
@@ -106,6 +109,7 @@ const GroupFormModal = ({ open, onClose, editing }: GroupFormModalProps) => {
       const payload = {
         name: values.name,
         monthly_fee: parseFloat(values.monthly_fee),
+        branch: activeBranch,
         description: values.description || null,
         created_by: profile?.id ?? null,
       };

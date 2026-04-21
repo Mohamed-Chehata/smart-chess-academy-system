@@ -19,6 +19,7 @@ export type Database = {
           id: string
           name: string
           monthly_fee: number
+          branch: string
           description: string | null
           created_by: string | null
           created_at: string
@@ -28,6 +29,7 @@ export type Database = {
           id?: string
           name: string
           monthly_fee: number
+          branch?: string
           description?: string | null
           created_by?: string | null
           created_at?: string
@@ -37,6 +39,7 @@ export type Database = {
           id?: string
           name?: string
           monthly_fee?: number
+          branch?: string
           description?: string | null
           created_by?: string | null
           created_at?: string
@@ -187,6 +190,7 @@ export type Database = {
       transactions: {
         Row: {
           amount: number
+          branch: string
           category: Database["public"]["Enums"]["transaction_category"]
           created_at: string
           date: string
@@ -198,6 +202,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          branch?: string
           category: Database["public"]["Enums"]["transaction_category"]
           created_at?: string
           date?: string
@@ -209,6 +214,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          branch?: string
           category?: Database["public"]["Enums"]["transaction_category"]
           created_at?: string
           date?: string

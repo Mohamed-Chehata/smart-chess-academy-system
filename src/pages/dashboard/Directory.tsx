@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useBranch } from "@/contexts/BranchContext";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import EditMemberModal from "@/components/dashboard/EditMemberModal";
@@ -36,17 +37,19 @@ const Directory = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isCoach, profile } = useAuth();
+  const { activeBranch } = useBranch();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState<string>("all");
   const [editingMember, setEditingMember] = useState<Profile | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const { data: profiles = [], isLoading: loading, error: profilesError } = useQuery({
-    queryKey: ["profiles"],
+    queryKey: ["profiles", activeBranch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
+        .eq("branch", activeBranch)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Profile[];
@@ -190,9 +193,10 @@ const Directory = () => {
               <p className="text-muted-foreground">No members found</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="rounded-xl border overflow-hidden">
+              <div className="overflow-x-auto overflow-y-auto max-h-[560px]">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
@@ -296,6 +300,7 @@ const Directory = () => {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </div>
           )}
         </CardContent>

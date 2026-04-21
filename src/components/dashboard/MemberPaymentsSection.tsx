@@ -1,23 +1,34 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, startOfMonth } from "date-fns";
+import { format, startOfMonth, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Search, Users2, Package as PackageIcon } from "lucide-react";
+import {
+  CheckCircle2, XCircle, Search, Users2,
+  Package as PackageIcon, MapPin, User, Phone, Calendar, CreditCard, StickyNote,
+} from "lucide-react";
 import MarkPaidModal from "@/components/dashboard/MarkPaidModal";
-import type { Profile, StudentPayment, StudentPackage } from "@/types";
+import type { Profile, StudentPayment, StudentPackage, Group, Branch } from "@/types";
+
+// ── sessionStorage keys ────────────────────────────────────────────────────────
+const SS_STATUS  = "member-payments-status-filter";
+const SS_GROUP   = "member-payments-group-filter";
 
 interface MemberPaymentsSectionProps {
   currentMonth: Date;
+  activeBranch: Branch;
 }
 
 const FREQUENCY_LABELS: Record<string, string> = {
@@ -29,29 +40,190 @@ const FREQUENCY_LABELS: Record<string, string> = {
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND" }).format(amount);
 
-const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => {
+// ── Helper: display a profile field row ───────────────────────────────────────
+function DetailRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+}) {
+  if (!value && value !== 0) return null;
+  return (
+    <div className="flex items-start gap-3 py-2 border-b border-border last:border-0">
+      <span className="text-muted-foreground shrink-0 mt-0.5">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium break-words">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Member Detail Dialog ───────────────────────────────────────────────────────
+function MemberDetailDialog({
+  student,
+  payment,
+  onClose,
+}: {
+  student: Profile | null;
+  payment: StudentPayment | null;
+  onClose: () => void;
+}) {
+  if (!student) return null;
+  return (
+    <Dialog open={!!student} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[460px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="w-4 h-4 text-gold" />
+            {student.full_name}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-0.5 mt-2">
+          <DetailRow
+            icon={<User className="w-4 h-4" />}
+            label="Email"
+            value={student.email}
+          />
+          <DetailRow
+            icon={<Phone className="w-4 h-4" />}
+            label="Phone"
+            value={student.phone_number}
+          />
+          <DetailRow
+            icon={<MapPin className="w-4 h-4" />}
+            label="Branch"
+            value={student.branch ? <span className="capitalize">{student.branch}</span> : null}
+          />
+          <DetailRow
+            icon={<Users2 className="w-4 h-4" />}
+            label="Level"
+            value={student.level ? <span className="capitalize">{student.level}</span> : null}
+          />
+          <DetailRow
+            icon={<Calendar className="w-4 h-4" />}
+            label="Birth Date"
+            value={
+              student.birth_date
+                ? format(parseISO(student.birth_date), "dd/MM/yyyy")
+                : null
+            }
+          />
+          <DetailRow
+            icon={<User className="w-4 h-4" />}
+            label="Parent / Guardian"
+            value={student.parent_name}
+          />
+          <DetailRow
+            icon={<MapPin className="w-4 h-4" />}
+            label="Address"
+            value={student.address}
+          />
+          <DetailRow
+            icon={<CreditCard className="w-4 h-4" />}
+            label="FIDE ID"
+            value={
+              student.fide_id ? (
+                <a
+                  href={`https://ratings.fide.com/profile/${student.fide_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gold hover:underline"
+                >
+                  {student.fide_id}
+                </a>
+              ) : null
+            }
+          />
+          <DetailRow
+            icon={<StickyNote className="w-4 h-4" />}
+            label="Memo"
+            value={student.memo}
+          />
+          <DetailRow
+            icon={<Calendar className="w-4 h-4" />}
+            label="Member Since"
+            value={format(parseISO(student.created_at), "dd/MM/yyyy")}
+          />
+
+          {/* Current payment status */}
+          <div className="flex items-start gap-3 py-2">
+            <span className="text-muted-foreground shrink-0 mt-0.5">
+              <CreditCard className="w-4 h-4" />
+            </span>
+            <div>
+              <p className="text-xs text-muted-foreground">Payment Status</p>
+              {payment ? (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Badge variant="outline" className="text-green-600 border-green-500 gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Paid
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {formatCurrency(payment.amount)} · {FREQUENCY_LABELS[payment.payment_frequency]}
+                  </span>
+                </div>
+              ) : (
+                <Badge variant="outline" className="text-destructive border-destructive gap-1 mt-0.5">
+                  <XCircle className="w-3 h-3" />
+                  Unpaid this month
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+const MemberPaymentsSection = ({ currentMonth, activeBranch }: MemberPaymentsSectionProps) => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
-  const [markPaidStudent, setMarkPaidStudent] = useState<Profile | null>(null);
+
+  // Restore filters from sessionStorage
+  const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "unpaid">(() => {
+    const saved = sessionStorage.getItem(SS_STATUS);
+    return (saved as "all" | "paid" | "unpaid") || "all";
+  });
+  const [groupFilter, setGroupFilter] = useState<string>(() => {
+    return sessionStorage.getItem(SS_GROUP) || "all";
+  });
+
+  const [markPaidStudent, setMarkPaidStudent]     = useState<Profile | null>(null);
+  const [detailStudent,   setDetailStudent]       = useState<Profile | null>(null);
+
+  const persistStatus = (v: "all" | "paid" | "unpaid") => {
+    setStatusFilter(v);
+    sessionStorage.setItem(SS_STATUS, v);
+  };
+  const persistGroup = (v: string) => {
+    setGroupFilter(v);
+    sessionStorage.setItem(SS_GROUP, v);
+  };
 
   const billingPeriodStr = format(startOfMonth(currentMonth), "yyyy-MM-dd");
 
-  // All players
+  // ── Queries ────────────────────────────────────────────────────────────────
   const { data: players = [], isLoading: playersLoading } = useQuery({
-    queryKey: ["profiles", "players"],
+    queryKey: ["profiles", "players", activeBranch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("role", "player")
+        .eq("branch", activeBranch)
         .order("full_name");
       if (error) throw error;
       return data as Profile[];
     },
   });
 
-  // Payment records for current billing period
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ["student_payments", billingPeriodStr],
     queryFn: async () => {
@@ -64,7 +236,6 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
     },
   });
 
-  // Active package assignments for all students
   const { data: activeAssignments = [] } = useQuery({
     queryKey: ["student_packages", "active"],
     queryFn: async () => {
@@ -77,7 +248,20 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
     },
   });
 
-  // Build lookup maps
+  const { data: groups = [] } = useQuery({
+    queryKey: ["groups", activeBranch],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("branch", activeBranch)
+        .order("name");
+      if (error) throw error;
+      return data as Group[];
+    },
+  });
+
+  // ── Lookup maps ────────────────────────────────────────────────────────────
   const paymentByStudent = payments.reduce<Record<string, StudentPayment>>((acc, p) => {
     acc[p.student_id] = p;
     return acc;
@@ -88,11 +272,10 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
     return acc;
   }, {});
 
-  // Undo payment — for package payments, removes all covered months; for others, just this month
+  // ── Undo mutation ──────────────────────────────────────────────────────────
   const undoMutation = useMutation({
     mutationFn: async (payment: StudentPayment) => {
       if (payment.payment_frequency === "package" && payment.transaction_id) {
-        // Delete all student_payments sharing this transaction (all package months)
         await supabase.from("student_payments").delete().eq("transaction_id", payment.transaction_id);
         await supabase.from("transactions").delete().eq("id", payment.transaction_id);
       } else {
@@ -114,24 +297,42 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
     onError: () => toast.error("Failed to reverse payment"),
   });
 
-  // Base counts (before status filter, after search)
-  const searched = players.filter((p) =>
+  // ── Filtering pipeline ─────────────────────────────────────────────────────
+  // 1. name search
+  const afterSearch = players.filter((p) =>
     p.full_name.toLowerCase().includes(search.toLowerCase())
   );
-  const paidCount   = searched.filter((p) =>  !!paymentByStudent[p.id]).length;
-  const unpaidCount = searched.filter((p) => !paymentByStudent[p.id]).length;
 
-  // Apply status filter on top
-  const filtered = searched.filter((p) => {
+  // 2. group filter
+  const afterGroup = groupFilter === "all"
+    ? afterSearch
+    : afterSearch.filter((p) => p.group_id === groupFilter);
+
+  // 3. counts for pills (after search + group, before status)
+  const paidCount   = afterGroup.filter((p) =>  !!paymentByStudent[p.id]).length;
+  const unpaidCount = afterGroup.filter((p) => !paymentByStudent[p.id]).length;
+
+  // 4. status filter
+  const filtered = afterGroup.filter((p) => {
     if (statusFilter === "paid")   return  !!paymentByStudent[p.id];
     if (statusFilter === "unpaid") return !paymentByStudent[p.id];
     return true;
   });
+
   const isLoading = playersLoading || paymentsLoading;
 
   const existingPaymentForModal = markPaidStudent
     ? paymentByStudent[markPaidStudent.id] ?? null
     : null;
+
+  const detailPayment = detailStudent
+    ? paymentByStudent[detailStudent.id] ?? null
+    : null;
+
+  // ── Group with students that have payments (for showing relevant groups only)
+  const groupsWithPlayers = groups.filter((g) =>
+    players.some((p) => p.group_id === g.id)
+  );
 
   return (
     <>
@@ -160,12 +361,41 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
               </div>
             </div>
 
+            {/* Group filter pills */}
+            {groupsWithPlayers.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => persistGroup("all")}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                    groupFilter === "all"
+                      ? "bg-gold/10 border-gold text-gold"
+                      : "border-border text-muted-foreground hover:border-foreground/30"
+                  }`}
+                >
+                  All groups
+                </button>
+                {groupsWithPlayers.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => persistGroup(g.id)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                      groupFilter === g.id
+                        ? "bg-gold/10 border-gold text-gold"
+                        : "border-border text-muted-foreground hover:border-foreground/30"
+                    }`}
+                  >
+                    {g.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Status filter pills */}
             <div className="flex gap-2">
               {(["all", "paid", "unpaid"] as const).map((s) => (
                 <button
                   key={s}
-                  onClick={() => setStatusFilter(s)}
+                  onClick={() => persistStatus(s)}
                   className={`px-3 py-1 rounded-full text-xs font-medium border transition-all capitalize ${
                     statusFilter === s
                       ? s === "paid"
@@ -194,33 +424,38 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
             <div className="text-center py-10 text-muted-foreground">No students found.</div>
           ) : (
             <div className="overflow-y-auto max-h-[640px] divide-y divide-border">
-              {/* Unpaid first, then paid — max 8 rows (~80px each) then scrolls */}
               {[...filtered]
                 .sort((a, b) => {
                   const aPaid = !!paymentByStudent[a.id];
                   const bPaid = !!paymentByStudent[b.id];
                   if (aPaid === bPaid) return a.full_name.localeCompare(b.full_name);
-                  return aPaid ? 1 : -1; // unpaid first
+                  return aPaid ? 1 : -1;
                 })
                 .map((student) => {
-                  const payment = paymentByStudent[student.id];
+                  const payment    = paymentByStudent[student.id];
                   const assignment = packageByStudent[student.id];
-                  const isPaid = !!payment;
+                  const isPaid     = !!payment;
 
                   return (
                     <div
                       key={student.id}
                       className="flex items-center justify-between py-3 gap-4 flex-wrap"
                     >
-                      {/* Student info */}
-                      <div className="flex items-center gap-3 min-w-0">
+                      {/* Student info — click opens detail dialog */}
+                      <button
+                        className="flex items-center gap-3 min-w-0 text-left hover:opacity-80 transition-opacity"
+                        onClick={() => setDetailStudent(student)}
+                        title="View details"
+                      >
                         <div
                           className={`w-2 h-2 rounded-full shrink-0 ${
                             isPaid ? "bg-green-500" : "bg-destructive"
                           }`}
                         />
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{student.full_name}</p>
+                          <p className="font-medium text-sm truncate hover:text-gold transition-colors">
+                            {student.full_name}
+                          </p>
                           <div className="flex items-center gap-2 flex-wrap">
                             {student.branch && (
                               <span className="text-xs text-muted-foreground capitalize">
@@ -240,7 +475,7 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
                             )}
                           </div>
                         </div>
-                      </div>
+                      </button>
 
                       {/* Right side: status + action */}
                       <div className="flex items-center gap-3 shrink-0">
@@ -319,6 +554,12 @@ const MemberPaymentsSection = ({ currentMonth }: MemberPaymentsSectionProps) => 
           existingPayment={existingPaymentForModal}
         />
       )}
+
+      <MemberDetailDialog
+        student={detailStudent}
+        payment={detailPayment}
+        onClose={() => setDetailStudent(null)}
+      />
     </>
   );
 };

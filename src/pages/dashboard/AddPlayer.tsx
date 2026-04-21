@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useBranch } from "@/contexts/BranchContext";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -48,13 +49,18 @@ type PlayerFormValues = z.infer<typeof playerSchema>;
 
 const AddPlayer = () => {
   const { isAdmin, isCoach, profile } = useAuth();
+  const { activeBranch } = useBranch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: groups = [] } = useQuery({
-    queryKey: ["groups"],
+    queryKey: ["groups", activeBranch],
     queryFn: async () => {
-      const { data, error } = await supabase.from("groups").select("*").order("name");
+      const { data, error } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("branch", activeBranch)
+        .order("name");
       if (error) throw error;
       return data as Group[];
     },
@@ -73,7 +79,7 @@ const AddPlayer = () => {
       fullName: "",
       birthDate: "",
       email: "",
-      branch: undefined,
+      branch: activeBranch,
       level: undefined,
       fideId: "",
       phoneNumber: "",

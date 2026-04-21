@@ -468,7 +468,7 @@ const PlayerProfile = () => {
                         )}
                         <div>
                           <p className="text-sm font-medium">
-                            {format(parseISO(a.session_date), "dd MMM yyyy")}
+                            {format(parseISO(a.session_date), "dd/MM/yyyy")}
                           </p>
                           {a.notes && (
                             <p className="text-xs text-muted-foreground">{a.notes}</p>

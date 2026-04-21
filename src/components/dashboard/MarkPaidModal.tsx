@@ -131,7 +131,7 @@ const MarkPaidModal = ({
       const paidAt = new Date().toISOString();
       const isPackage = values.payment_frequency === "package" && activePackage;
 
-      // 1. Create one transaction
+      // 1. Create one transaction (tagged with the student's branch)
       const { data: txData, error: txError } = await supabase
         .from("transactions")
         .insert({
@@ -140,6 +140,7 @@ const MarkPaidModal = ({
           type: "income",
           category: "frais_inscription",
           amount,
+          branch: student.branch ?? "tunis",
           description: values.notes
             ? `${student.full_name} — ${values.notes}`
             : student.full_name,
@@ -217,8 +218,8 @@ const MarkPaidModal = ({
               <p className="text-sm font-medium">{activePackage.name}</p>
               <p className="text-xs text-muted-foreground">
                 {formatCurrency(activePackage.price)} ·{" "}
-                {format(new Date(activePackage.start_date), "dd MMM")} –{" "}
-                {format(new Date(activePackage.end_date), "dd MMM yyyy")}
+                {format(new Date(activePackage.start_date), "dd/MM/yyyy")} –{" "}
+                {format(new Date(activePackage.end_date), "dd/MM/yyyy")}
               </p>
             </div>
             <Badge variant="default" className="ml-auto shrink-0">Active package</Badge>

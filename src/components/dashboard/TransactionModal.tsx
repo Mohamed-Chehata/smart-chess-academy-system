@@ -32,7 +32,7 @@ import {
   TRANSACTION_CATEGORY_LABELS,
   TRANSACTION_TYPE_LABELS,
 } from "@/constants/enums";
-import type { Transaction, TransactionType } from "@/types";
+import type { Transaction, TransactionType, Branch } from "@/types";
 
 const transactionSchema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -73,6 +73,8 @@ interface TransactionModalProps {
     amount?: number;
     description?: string;
   } | null;
+  /** Branch to tag new transactions with */
+  activeBranch?: Branch;
 }
 
 const TransactionModal = ({
@@ -81,6 +83,7 @@ const TransactionModal = ({
   transaction,
   defaultDate,
   prefill,
+  activeBranch = "tunis",
 }: TransactionModalProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -166,7 +169,7 @@ const TransactionModal = ({
       } else {
         const { error } = await supabase
           .from("transactions")
-          .insert({ ...payload, user_id: user!.id });
+          .insert({ ...payload, user_id: user!.id, branch: activeBranch });
         if (error) throw error;
       }
     },

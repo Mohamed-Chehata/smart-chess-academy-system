@@ -6,6 +6,7 @@ import { z } from "zod";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useBranch } from "@/contexts/BranchContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   Plus, Package as PackageIcon, Pencil, Trash2, Users, CalendarRange,
-  Loader2, DollarSign,
+  Loader2, DollarSign, Search,
 } from "lucide-react";
 import type { Package, Profile, StudentPackage } from "@/types";
 
@@ -180,11 +181,18 @@ interface AssignStudentsModalProps {
 
 const AssignStudentsModal = ({ open, onClose, pkg }: AssignStudentsModalProps) => {
   const queryClient = useQueryClient();
+  const { activeBranch } = useBranch();
+  const [search, setSearch] = useState("");
 
   const { data: players = [] } = useQuery({
-    queryKey: ["profiles"],
+    queryKey: ["profiles", "players", activeBranch],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*").eq("role", "player").order("full_name");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "player")
+        .eq("branch", activeBranch)
+        .order("full_name");
       if (error) throw error;
       return data as Profile[];
     },
@@ -256,46 +264,65 @@ const AssignStudentsModal = ({ open, onClose, pkg }: AssignStudentsModalProps) =
           </DialogDescription>
         </DialogHeader>
 
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+
         <div className="space-y-2 py-2">
-          {players.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-6">No players found.</p>
-          )}
-          {players.map((player) => {
-            const isAssigned = assignedToThisPkg.has(player.id);
-            const otherPkg = assignedToOtherPkg.get(player.id);
-            return (
-              <div
-                key={player.id}
-                className="flex items-center justify-between rounded-lg border p-3 gap-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Checkbox
-                    checked={isAssigned}
-                    onCheckedChange={(checked) =>
-                      toggleMutation.mutate({ studentId: player.id, assign: !!checked })
-                    }
-                    disabled={toggleMutation.isPending}
-                  />
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{player.full_name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {player.level} · {player.branch}
-                    </p>
+          {(() => {
+            const visible = players.filter((p) =>
+              p.full_name.toLowerCase().includes(search.toLowerCase())
+            );
+            if (visible.length === 0)
+              return (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  {search ? "No players match your search." : "No players found."}
+                </p>
+              );
+            return visible.map((player) => {
+              const isAssigned = assignedToThisPkg.has(player.id);
+              const otherPkg = assignedToOtherPkg.get(player.id);
+              return (
+                <div
+                  key={player.id}
+                  className="flex items-center justify-between rounded-lg border p-3 gap-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Checkbox
+                      checked={isAssigned}
+                      onCheckedChange={(checked) =>
+                        toggleMutation.mutate({ studentId: player.id, assign: !!checked })
+                      }
+                      disabled={toggleMutation.isPending}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{player.full_name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {player.level} · {player.branch}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    {isAssigned && (
+                      <Badge variant="default" className="text-xs">Enrolled</Badge>
+                    )}
+                    {!isAssigned && otherPkg && (
+                      <Badge variant="secondary" className="text-xs max-w-[120px] truncate">
+                        {otherPkg.name}
+                      </Badge>
+                    )}
                   </div>
                 </div>
-                <div className="shrink-0">
-                  {isAssigned && (
-                    <Badge variant="default" className="text-xs">Enrolled</Badge>
-                  )}
-                  {!isAssigned && otherPkg && (
-                    <Badge variant="secondary" className="text-xs max-w-[120px] truncate">
-                      {otherPkg.name}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
 
         <DialogFooter>
@@ -474,8 +501,8 @@ const AddPackage = () => {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CalendarRange className="w-4 h-4 shrink-0" />
                     <span>
-                      {format(parseISO(pkg.start_date), "dd MMM yyyy")} →{" "}
-                      {format(parseISO(pkg.end_date), "dd MMM yyyy")}
+                      {format(parseISO(pkg.start_date), "dd/MM/yyyy")} →{" "}
+                      {format(parseISO(pkg.end_date), "dd/MM/yyyy")}
                     </span>
                   </div>
 

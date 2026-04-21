@@ -1,4 +1,4 @@
-import { Component, ReactNode } from "react";
+import React, { Component, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
@@ -9,6 +9,7 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  resetCount: number;
 }
 
 /**
@@ -18,19 +19,24 @@ interface State {
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, resetCount: 0 };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState((s) => ({ hasError: false, error: null, resetCount: s.resetCount + 1 }));
   };
 
   render() {
-    if (!this.state.hasError) return this.props.children;
+    if (!this.state.hasError)
+      return (
+        <React.Fragment key={this.state.resetCount}>
+          {this.props.children}
+        </React.Fragment>
+      );
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">

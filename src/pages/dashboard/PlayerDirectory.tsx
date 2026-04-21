@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useBranch } from "@/contexts/BranchContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -72,20 +73,22 @@ const AttendanceBtn = ({ playerId, record, onCycle, isPending }: AttendanceBtnPr
 const PlayerDirectory = () => {
   const navigate = useNavigate();
   const { isAdmin, isCoach, profile } = useAuth();
+  const { activeBranch } = useBranch();
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("all");
   const [coachFilter, setCoachFilter] = useState("all");
 
-  // All players
+  // All players for the active branch
   const { data: allPlayers = [], isLoading: playersLoading } = useQuery({
-    queryKey: ["profiles", "players"],
+    queryKey: ["profiles", "players", activeBranch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("role", "player")
+        .eq("branch", activeBranch)
         .order("full_name");
       if (error) throw error;
       return data as Profile[];
@@ -105,24 +108,29 @@ const PlayerDirectory = () => {
     },
   });
 
-  // All groups
+  // All groups for the active branch
   const { data: groups = [] } = useQuery({
-    queryKey: ["groups"],
+    queryKey: ["groups", activeBranch],
     queryFn: async () => {
-      const { data, error } = await supabase.from("groups").select("*").order("name");
+      const { data, error } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("branch", activeBranch)
+        .order("name");
       if (error) throw error;
       return data as Group[];
     },
   });
 
-  // All coaches (admin only filter)
+  // All coaches for the active branch (admin only filter)
   const { data: coaches = [] } = useQuery({
-    queryKey: ["profiles", "coaches"],
+    queryKey: ["profiles", "coaches", activeBranch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("role", "coach")
+        .eq("branch", activeBranch)
         .order("full_name");
       if (error) throw error;
       return data as Profile[];

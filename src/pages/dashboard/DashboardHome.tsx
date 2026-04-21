@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useBranch } from "@/contexts/BranchContext";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import FinancialOverview from "@/components/dashboard/FinancialOverview";
@@ -12,13 +13,15 @@ import type { Profile } from "@/types";
 
 const DashboardHome = () => {
   const { profile, isAdmin, isCoach, isPlayer, loading, user } = useAuth();
+  const { activeBranch } = useBranch();
 
   const { data: profilesData, isLoading: statsLoading } = useQuery({
-    queryKey: ["profiles", "stats"],
+    queryKey: ["profiles", "stats", activeBranch],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("role, branch");
+        .select("role, branch")
+        .eq("branch", activeBranch);
       if (error) throw error;
       return data as Pick<Profile, "role" | "branch">[];
     },
@@ -28,8 +31,6 @@ const DashboardHome = () => {
   const stats = {
     totalCoaches: profilesData?.filter((p) => p.role === "coach").length ?? 0,
     totalPlayers: profilesData?.filter((p) => p.role === "player").length ?? 0,
-    tunisMembers: profilesData?.filter((p) => p.branch === "tunis").length ?? 0,
-    sousseMembers: profilesData?.filter((p) => p.branch === "sousse").length ?? 0,
   };
 
   if (loading) {
@@ -92,12 +93,12 @@ const DashboardHome = () => {
 
       {/* Admin/Coach Stats */}
       {(isAdmin || isCoach) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {isAdmin && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Coaches
+                  Coaches
                 </CardTitle>
                 <Users className="w-4 h-4 text-gold" />
               </CardHeader>
@@ -105,13 +106,14 @@ const DashboardHome = () => {
                 <div className="text-3xl font-bold">
                   {statsLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats.totalCoaches}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1 capitalize">{activeBranch} branch</p>
               </CardContent>
             </Card>
           )}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Players
+                Players
               </CardTitle>
               <Users className="w-4 h-4 text-gold" />
             </CardHeader>
@@ -119,32 +121,19 @@ const DashboardHome = () => {
               <div className="text-3xl font-bold">
                 {statsLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats.totalPlayers}
               </div>
+              <p className="text-xs text-muted-foreground mt-1 capitalize">{activeBranch} branch</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Tunis Branch
+                Active Branch
               </CardTitle>
               <MapPin className="w-4 h-4 text-gold" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
-                {statsLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats.tunisMembers}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Sousse Branch
-              </CardTitle>
-              <MapPin className="w-4 h-4 text-gold" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {statsLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats.sousseMembers}
-              </div>
+              <div className="text-3xl font-bold capitalize">{activeBranch}</div>
+              <p className="text-xs text-muted-foreground mt-1">Currently viewing</p>
             </CardContent>
           </Card>
         </div>
