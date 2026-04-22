@@ -3,7 +3,16 @@ import type { Branch, Level, TransactionCategory, TransactionType } from "@/type
 // ─── Value arrays ─────────────────────────────────────────────────────────────
 export const BRANCHES: Branch[] = ["tunis", "sousse"];
 export const LEVELS: Level[] = ["beginner", "intermediate", "advanced"];
-export const TRANSACTION_TYPES: TransactionType[] = ["income", "expense"];
+export const TRANSACTION_TYPES: TransactionType[] = ["income", "expense", "transfer"];
+
+// ─── Accounts (used for money transfers) ─────────────────────────────────────
+export const ACCOUNTS = ["caisse", "bank", "ccp"] as const;
+export type Account = (typeof ACCOUNTS)[number];
+export const ACCOUNT_LABELS: Record<string, string> = {
+  caisse: "Caisse",
+  bank: "Bank Account",
+  ccp: "CCP (Postal)",
+};
 
 /**
  * Categories available when type = "income"
@@ -68,4 +77,5 @@ export const TRANSACTION_CATEGORY_LABELS: Record<TransactionCategory, string> = 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   income: "Income",
   expense: "Expense",
+  transfer: "Transfer",
 };

@@ -8,6 +8,29 @@ import { startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND" }).format(amount);
 
+type TxRow = {
+  type: string;
+  amount: number;
+  date: string;
+  from_account: string | null;
+  to_account: string | null;
+};
+
+/** Compute caisse balance:
+ *  income − expenses − transfers_out_of_caisse + transfers_into_caisse
+ */
+function caisseBalance(rows: TxRow[]): number {
+  return rows.reduce((sum, t) => {
+    if (t.type === "income") return sum + t.amount;
+    if (t.type === "expense") return sum - t.amount;
+    if (t.type === "transfer") {
+      if (t.from_account === "caisse") return sum - t.amount;
+      if (t.to_account === "caisse") return sum + t.amount;
+    }
+    return sum;
+  }, 0);
+}
+
 const FinancialOverview = () => {
   const { activeBranch } = useBranch();
 
@@ -16,10 +39,10 @@ const FinancialOverview = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("type, amount, date")
+        .select("type, amount, date, from_account, to_account")
         .eq("branch", activeBranch);
       if (error) throw error;
-      return data as { type: string; amount: number; date: string }[];
+      return data as TxRow[];
     },
   });
 
@@ -38,10 +61,7 @@ const FinancialOverview = () => {
     .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const netBalance = transactions.reduce(
-    (sum, t) => sum + (t.type === "income" ? t.amount : -t.amount),
-    0
-  );
+  const netBalance = caisseBalance(transactions);
 
   return (
     <div className="mb-8">
@@ -70,11 +90,11 @@ const FinancialOverview = () => {
           </CardContent>
         </Card>
 
-        {/* Cash balance */}
+        {/* Caisse balance (all-time, transfers included) */}
         <Card className="border-l-4 border-l-gold">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Cash Balance
+              Cash Balance (Caisse)
             </CardTitle>
             <Wallet className="w-5 h-5 text-gold" />
           </CardHeader>
@@ -83,10 +103,14 @@ const FinancialOverview = () => {
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             ) : (
               <>
-                <div className={`text-2xl font-bold ${netBalance >= 0 ? "text-foreground" : "text-destructive"}`}>
+                <div
+                  className={`text-2xl font-bold ${
+                    netBalance >= 0 ? "text-foreground" : "text-destructive"
+                  }`}
+                >
                   {formatCurrency(netBalance)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">All-time balance</p>
+                <p className="text-xs text-muted-foreground mt-1">All-time caisse balance</p>
               </>
             )}
           </CardContent>

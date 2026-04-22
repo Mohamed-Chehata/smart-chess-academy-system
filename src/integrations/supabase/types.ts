@@ -191,10 +191,12 @@ export type Database = {
         Row: {
           amount: number
           branch: string
-          category: Database["public"]["Enums"]["transaction_category"]
+          category: Database["public"]["Enums"]["transaction_category"] | null
           created_at: string
           date: string
           description: string | null
+          from_account: string | null
+          to_account: string | null
           id: string
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
@@ -203,10 +205,12 @@ export type Database = {
         Insert: {
           amount: number
           branch?: string
-          category: Database["public"]["Enums"]["transaction_category"]
+          category?: Database["public"]["Enums"]["transaction_category"] | null
           created_at?: string
           date?: string
           description?: string | null
+          from_account?: string | null
+          to_account?: string | null
           id?: string
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
@@ -215,10 +219,12 @@ export type Database = {
         Update: {
           amount?: number
           branch?: string
-          category?: Database["public"]["Enums"]["transaction_category"]
+          category?: Database["public"]["Enums"]["transaction_category"] | null
           created_at?: string
           date?: string
           description?: string | null
+          from_account?: string | null
+          to_account?: string | null
           id?: string
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
@@ -435,7 +441,7 @@ export type Database = {
         | "transport"
         | "evenement"
         | "autres"
-      transaction_type: "income" | "expense"
+      transaction_type: "income" | "expense" | "transfer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -574,7 +580,7 @@ export const Constants = {
         "evenement",
         "autres",
       ],
-      transaction_type: ["income", "expense"],
+      transaction_type: ["income", "expense", "transfer"],
     },
   },
 } as const

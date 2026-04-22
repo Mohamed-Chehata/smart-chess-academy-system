@@ -2,7 +2,7 @@
 export type Role = "admin" | "assistant" | "coach" | "player";
 export type Branch = "tunis" | "sousse";
 export type Level = "beginner" | "intermediate" | "advanced";
-export type TransactionType = "income" | "expense";
+export type TransactionType = "income" | "expense" | "transfer";
 export type TransactionCategory =
   | "frais_inscription"
   | "loyer"
@@ -87,10 +87,15 @@ export interface Transaction {
   user_id: string;
   amount: number;
   type: TransactionType;
-  category: TransactionCategory;
+  /** Null for transfer rows */
+  category: TransactionCategory | null;
   branch: Branch;
   date: string;
   description: string | null;
+  /** Only set when type === "transfer" */
+  from_account: string | null;
+  /** Only set when type === "transfer" */
+  to_account: string | null;
   created_at: string;
   updated_at: string;
 }
