@@ -17,6 +17,7 @@ import {
   UsersRound,
   ClipboardList,
   MapPin,
+  Settings,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -25,7 +26,7 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const { profile, signOut, isAdmin, isCoach } = useAuth();
+  const { profile, signOut, isAdmin, isAssistant, isCoach } = useAuth();
   const { activeBranch, setActiveBranch, canSwitch } = useBranch();
   const location = useLocation();
   const navigate = useNavigate();
@@ -45,7 +46,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: "Member Directory", href: "/dashboard/directory", icon: Users },
     { name: "Player Directory", href: "/dashboard/players", icon: ClipboardList },
     { name: "Finances", href: "/dashboard/finances", icon: Wallet },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
+
+  // Assistants have all admin capabilities on their branch but no Settings access
+  const assistantLinks = adminLinks.filter((l) => l.href !== "/dashboard/settings");
 
   const coachLinks = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -58,7 +63,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   ];
 
-  const links = isAdmin ? adminLinks : isCoach ? coachLinks : playerLinks;
+  const links = isAdmin
+    ? adminLinks
+    : isAssistant
+    ? assistantLinks
+    : isCoach
+    ? coachLinks
+    : playerLinks;
 
   return (
     <div className="min-h-screen bg-background">

@@ -18,6 +18,7 @@ import AddPackage from "./pages/dashboard/AddPackage";
 import AddGroup from "./pages/dashboard/AddGroup";
 import PlayerDirectory from "./pages/dashboard/PlayerDirectory";
 import PlayerProfile from "./pages/dashboard/PlayerProfile";
+import SettingsPage from "./pages/dashboard/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -50,6 +51,7 @@ function AppRoutes() {
       <Route path="/dashboard/add-group" element={<AddGroup />} />
       <Route path="/dashboard/players" element={<PlayerDirectory />} />
       <Route path="/dashboard/players/:profileId" element={<PlayerProfile />} />
+      <Route path="/dashboard/settings" element={<SettingsPage />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

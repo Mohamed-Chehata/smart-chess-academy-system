@@ -1,5 +1,5 @@
 // ─── Primitive union types ────────────────────────────────────────────────────
-export type Role = "admin" | "coach" | "player";
+export type Role = "admin" | "assistant" | "coach" | "player";
 export type Branch = "tunis" | "sousse";
 export type Level = "beginner" | "intermediate" | "advanced";
 export type TransactionType = "income" | "expense";
