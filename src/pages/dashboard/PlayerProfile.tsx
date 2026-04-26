@@ -26,8 +26,13 @@ import { toast } from "sonner";
 import {
   ArrowLeft, CalendarDays, MessageSquare, CheckCircle2,
   XCircle, Plus, Pencil, User, MapPin, Award, Phone,
+  Package as PackageIcon, Users, Loader2, CalendarRange,
+  DollarSign, UserMinus,
 } from "lucide-react";
-import type { Profile, Group, Attendance, PlayerComment } from "@/types";
+import type { Profile, Group, Attendance, PlayerComment, Package, StudentPackage } from "@/types";
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND" }).format(amount);
 
 // ─── Attendance Modal ─────────────────────────────────────────────────────────
 interface AttendanceModalProps {
@@ -203,6 +208,273 @@ const CommentModal = ({ open, onClose, playerId, month, existing }: CommentModal
   );
 };
 
+// ─── Enroll Package Modal ─────────────────────────────────────────────────────
+interface EnrollPackageModalProps {
+  open: boolean;
+  onClose: () => void;
+  playerId: string;
+  currentAssignment: StudentPackage | null;
+}
+
+const EnrollPackageModal = ({ open, onClose, playerId, currentAssignment }: EnrollPackageModalProps) => {
+  const queryClient = useQueryClient();
+
+  const { data: packages = [], isLoading } = useQuery({
+    queryKey: ["packages"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("packages")
+        .select("*")
+        .order("start_date", { ascending: false });
+      if (error) throw error;
+      return data as Package[];
+    },
+    enabled: open,
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: async (packageId: string | null) => {
+      // Deactivate any current active package for this player
+      await supabase
+        .from("student_packages")
+        .update({ is_active: false })
+        .eq("student_id", playerId)
+        .eq("is_active", true);
+      // Assign new package if not just removing
+      if (packageId) {
+        const { error } = await supabase.from("student_packages").insert({
+          student_id: playerId,
+          package_id: packageId,
+          is_active: true,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_, packageId) => {
+      toast.success(packageId ? "Package assigned" : "Removed from package");
+      queryClient.invalidateQueries({ queryKey: ["student_packages"] });
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to update package"),
+  });
+
+  const now = new Date().toISOString().split("T")[0];
+  const currentPkg = currentAssignment?.package as Package | undefined;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <PackageIcon className="w-4 h-4 text-gold" />
+            Enroll in Package
+          </DialogTitle>
+          <DialogDescription>
+            Select a package to enroll this player. Each player can only have one active package at a time.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : packages.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No packages available. Create one first from the Packages page.
+          </p>
+        ) : (
+          <div className="space-y-2 py-2">
+            {/* Current enrollment banner */}
+            {currentPkg && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gold/5 border border-gold/30 mb-3">
+                <div className="flex items-center gap-2 text-sm min-w-0">
+                  <CheckCircle2 className="w-4 h-4 text-gold shrink-0" />
+                  <span className="font-medium truncate">Enrolled: {currentPkg.name}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive h-7 text-xs shrink-0 ml-2"
+                  onClick={() => assignMutation.mutate(null)}
+                  disabled={assignMutation.isPending}
+                >
+                  <UserMinus className="w-3 h-3 mr-1" />
+                  Remove
+                </Button>
+              </div>
+            )}
+
+            {packages.map((pkg) => {
+              const isCurrent = currentAssignment?.package_id === pkg.id;
+              const isActive = pkg.start_date <= now && pkg.end_date >= now;
+              return (
+                <button
+                  key={pkg.id}
+                  onClick={() => !isCurrent && assignMutation.mutate(pkg.id)}
+                  disabled={isCurrent || assignMutation.isPending}
+                  className={`w-full text-left rounded-lg border p-3 transition-all ${
+                    isCurrent
+                      ? "opacity-50 cursor-default border-border"
+                      : "hover:border-gold/50 hover:bg-gold/5 cursor-pointer border-border"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{pkg.name}</p>
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <DollarSign className="w-3 h-3" />
+                          {formatCurrency(pkg.price)}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <CalendarRange className="w-3 h-3" />
+                          {format(parseISO(pkg.start_date), "dd/MM/yyyy")} → {format(parseISO(pkg.end_date), "dd/MM/yyyy")}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge variant={isActive ? "default" : "secondary"} className="text-xs shrink-0">
+                      {isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ─── Assign Group Modal ───────────────────────────────────────────────────────
+interface AssignGroupModalProps {
+  open: boolean;
+  onClose: () => void;
+  player: Profile;
+  currentGroup: Group | null;
+}
+
+const AssignGroupModal = ({ open, onClose, player, currentGroup }: AssignGroupModalProps) => {
+  const queryClient = useQueryClient();
+
+  const { data: groups = [], isLoading } = useQuery({
+    queryKey: ["groups", player.branch],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("branch", player.branch!)
+        .order("name");
+      if (error) throw error;
+      return data as Group[];
+    },
+    enabled: open && !!player.branch,
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: async (groupId: string | null) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ group_id: groupId })
+        .eq("id", player.id);
+      if (error) throw error;
+    },
+    onSuccess: (_, groupId) => {
+      toast.success(groupId ? "Group assigned" : "Removed from group");
+      queryClient.invalidateQueries({ queryKey: ["profile", player.id] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to update group"),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[440px] max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-gold" />
+            Assign Training Group
+          </DialogTitle>
+          <DialogDescription>
+            Select the group this player belongs to. They can only be in one group at a time.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : groups.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No groups available for this branch.
+          </p>
+        ) : (
+          <div className="space-y-2 py-2">
+            {/* Current group banner */}
+            {currentGroup && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gold/5 border border-gold/30 mb-3">
+                <div className="flex items-center gap-2 text-sm min-w-0">
+                  <CheckCircle2 className="w-4 h-4 text-gold shrink-0" />
+                  <span className="font-medium truncate">Current group: {currentGroup.name}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive h-7 text-xs shrink-0 ml-2"
+                  onClick={() => assignMutation.mutate(null)}
+                  disabled={assignMutation.isPending}
+                >
+                  <UserMinus className="w-3 h-3 mr-1" />
+                  Remove
+                </Button>
+              </div>
+            )}
+
+            {groups.map((g) => {
+              const isCurrent = currentGroup?.id === g.id;
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => !isCurrent && assignMutation.mutate(g.id)}
+                  disabled={isCurrent || assignMutation.isPending}
+                  className={`w-full text-left rounded-lg border p-3 transition-all ${
+                    isCurrent
+                      ? "opacity-50 cursor-default border-border"
+                      : "hover:border-gold/50 hover:bg-gold/5 cursor-pointer border-border"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{g.name}</p>
+                      {g.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                          {g.description}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground shrink-0">
+                      {formatCurrency(g.monthly_fee)}<span className="font-normal">/mo</span>
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const PlayerProfile = () => {
   const { profileId } = useParams<{ profileId: string }>();
@@ -214,6 +486,8 @@ const PlayerProfile = () => {
   const [commentModal, setCommentModal] = useState(false);
   const [commentMonth, setCommentMonth] = useState(new Date());
   const [editingComment, setEditingComment] = useState<PlayerComment | null>(null);
+  const [enrollModal, setEnrollModal] = useState(false);
+  const [groupModal, setGroupModal] = useState(false);
 
   // Player profile
   const { data: player, isLoading } = useQuery({
@@ -243,6 +517,22 @@ const PlayerProfile = () => {
       return data as Group;
     },
     enabled: !!player?.group_id,
+  });
+
+  // Player's active package assignment
+  const { data: activeAssignment = null } = useQuery({
+    queryKey: ["student_packages", "player", profileId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("student_packages")
+        .select("*, package:packages(*)")
+        .eq("student_id", profileId!)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data as StudentPackage | null;
+    },
+    enabled: !!profileId,
   });
 
   // Attendance records
@@ -397,6 +687,120 @@ const PlayerProfile = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── Enrollment ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {/* Package card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <PackageIcon className="w-4 h-4 text-gold" />
+              Package Enrollment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {activeAssignment ? (
+              <div className="space-y-2">
+                <p className="font-medium text-sm">
+                  {(activeAssignment.package as Package)?.name ?? "—"}
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <DollarSign className="w-3 h-3" />
+                    {formatCurrency((activeAssignment.package as Package)?.price ?? 0)}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <CalendarRange className="w-3 h-3" />
+                    {(activeAssignment.package as Package)?.end_date
+                      ? `Until ${format(parseISO((activeAssignment.package as Package).end_date), "dd/MM/yyyy")}`
+                      : "—"}
+                  </span>
+                </div>
+                {canEdit && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-1"
+                    onClick={() => setEnrollModal(true)}
+                  >
+                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                    Change Package
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Not enrolled in any package.</p>
+                {canEdit && (
+                  <Button
+                    variant="gold"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setEnrollModal(true)}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    Enroll in Package
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Group card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Users className="w-4 h-4 text-gold" />
+              Training Group
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {group ? (
+              <div className="space-y-2">
+                <p className="font-medium text-sm">{group.name}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <DollarSign className="w-3 h-3" />
+                    {formatCurrency(group.monthly_fee)}/month
+                  </span>
+                  {group.description && (
+                    <span className="text-xs text-muted-foreground line-clamp-1">
+                      {group.description}
+                    </span>
+                  )}
+                </div>
+                {canEdit && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-1"
+                    onClick={() => setGroupModal(true)}
+                  >
+                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                    Change Group
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Not assigned to any group.</p>
+                {canEdit && (
+                  <Button
+                    variant="gold"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setGroupModal(true)}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    Assign to Group
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -569,6 +973,18 @@ const PlayerProfile = () => {
         playerId={player.id}
         month={commentMonth}
         existing={editingComment}
+      />
+      <EnrollPackageModal
+        open={enrollModal}
+        onClose={() => setEnrollModal(false)}
+        playerId={player.id}
+        currentAssignment={activeAssignment}
+      />
+      <AssignGroupModal
+        open={groupModal}
+        onClose={() => setGroupModal(false)}
+        player={player}
+        currentGroup={group ?? null}
       />
     </DashboardLayout>
   );
