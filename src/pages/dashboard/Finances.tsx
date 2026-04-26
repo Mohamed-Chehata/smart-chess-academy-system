@@ -40,20 +40,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import { toast } from "sonner";
 import {
   Plus, ChevronLeft, ChevronRight, Search, Wallet,
   CreditCard, Banknote, Pencil, Trash2, TrendingUp,
-  ArrowRightLeft, Landmark,
+  ArrowRightLeft, Landmark, CalendarDays,
 } from "lucide-react";
 import {
   TRANSACTION_CATEGORIES,
@@ -67,6 +61,8 @@ import QuickTransactionBar, { type TxTemplate } from "@/components/dashboard/Qui
 import { useBranch } from "@/contexts/BranchContext";
 import type { Transaction, TransactionCategory } from "@/types";
 
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND" }).format(amount);
 
@@ -76,7 +72,7 @@ function getDefaultDate(viewedMonth: Date): string {
   return format(startOfMonth(viewedMonth), "yyyy-MM-dd");
 }
 
-/** Build bar-chart data for the last 6 months — transfers excluded */
+/** Bar-chart data for the last 6 months — transfers excluded */
 function buildChartData(transactions: Transaction[]) {
   const months = Array.from({ length: 6 }, (_, i) => subMonths(new Date(), 5 - i));
   return months.map((month) => {
@@ -86,40 +82,70 @@ function buildChartData(transactions: Transaction[]) {
     );
     return {
       name: format(month, "MMM yy"),
-      Income: inMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0),
+      Income:   inMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0),
       Expenses: inMonth.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
     };
   });
 }
 
-/** Caisse balance: income − expenses − transfers_out + transfers_in */
+/** Caisse balance: income − expenses − transfers_out_of_caisse + transfers_into_caisse */
 function calcCaisseBalance(txns: Transaction[]): number {
   return txns.reduce((s, t) => {
     if (t.type === "income") return s + t.amount;
     if (t.type === "expense") return s - t.amount;
     if (t.type === "transfer") {
       if (t.from_account === "caisse") return s - t.amount;
-      if (t.to_account === "caisse") return s + t.amount;
+      if (t.to_account === "caisse")   return s + t.amount;
     }
     return s;
   }, 0);
 }
+
+// ─── Stat card ────────────────────────────────────────────────────────────────
+
+interface StatCardProps {
+  title: string;
+  amount: number;
+  context: string;
+  icon: React.ReactNode;
+  accentClass: string;   // e.g. "border-l-primary"
+  amountClass?: string;  // override text colour for negative balance
+}
+
+function StatCard({ title, amount, context, icon, accentClass, amountClass }: StatCardProps) {
+  return (
+    <Card className={`border-l-4 ${accentClass}`}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent className="pt-0">
+        <p className={`text-2xl font-bold tracking-tight ${amountClass ?? ""}`}>
+          {formatCurrency(amount)}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1.5">{context}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 const Finances = () => {
   const { isAdmin, isAssistant } = useAuth();
   const { activeBranch } = useBranch();
   const queryClient = useQueryClient();
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [transferOpen, setTransferOpen] = useState(false);
+  const [modalOpen,          setModalOpen]          = useState(false);
+  const [transferOpen,       setTransferOpen]       = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [quickPrefill, setQuickPrefill] = useState<TxTemplate | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [currentMonth, setCurrentMonth] = useState(() => new Date());
+  const [quickPrefill,       setQuickPrefill]       = useState<TxTemplate | null>(null);
+  const [searchTerm,         setSearchTerm]         = useState("");
+  const [typeFilter,         setTypeFilter]         = useState<string>("all");
+  const [categoryFilter,     setCategoryFilter]     = useState<string>("all");
+  const [currentMonth,       setCurrentMonth]       = useState(() => new Date());
 
-  // ── Scroll position persistence ────────────────────────────────────────────
+  // ── Scroll-position persistence ────────────────────────────────────────────
   const SCROLL_KEY = "finances-scroll-y";
   const didRestoreRef = useRef(false);
 
@@ -139,6 +165,7 @@ const Finances = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // ── Data ───────────────────────────────────────────────────────────────────
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["transactions", activeBranch],
     queryFn: async () => {
@@ -167,6 +194,7 @@ const Finances = () => {
     onError: () => toast.error("Failed to delete transaction"),
   });
 
+  // ── Access guard ───────────────────────────────────────────────────────────
   if (!isAdmin && !isAssistant) {
     return (
       <DashboardLayout>
@@ -181,74 +209,53 @@ const Finances = () => {
   }
 
   // ── Derived values ─────────────────────────────────────────────────────────
-  const monthInterval = {
-    start: startOfMonth(currentMonth),
-    end: endOfMonth(currentMonth),
-  };
+  const monthInterval = { start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) };
 
   const monthTransactions = transactions.filter((t) =>
     isWithinInterval(parseISO(t.date), monthInterval)
   );
 
-  const monthlyIncome = monthTransactions
-    .filter((t) => t.type === "income")
-    .reduce((s, t) => s + t.amount, 0);
-
-  const monthlyExpenses = monthTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((s, t) => s + t.amount, 0);
-
-  const caisseBalance = calcCaisseBalance(transactions);
-
-  /** Deposits = money moved OUT of caisse this month */
+  const monthlyIncome    = monthTransactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const monthlyExpenses  = monthTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const caisseBalance    = calcCaisseBalance(transactions);
   const monthlyCashDeposits = monthTransactions
     .filter((t) => t.type === "transfer" && t.from_account === "caisse")
     .reduce((s, t) => s + t.amount, 0);
 
   const chartData = buildChartData(transactions);
 
-  // ── Filtered list ──────────────────────────────────────────────────────────
   const filtered = monthTransactions.filter((t) => {
     const matchesSearch =
       !searchTerm ||
       t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (t.from_account && ACCOUNT_LABELS[t.from_account]?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (t.to_account && ACCOUNT_LABELS[t.to_account]?.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesType = typeFilter === "all" || t.type === typeFilter;
-    const matchesCategory =
-      categoryFilter === "all" || t.category === categoryFilter;
+      (t.to_account   && ACCOUNT_LABELS[t.to_account]?.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesType     = typeFilter     === "all" || t.type     === typeFilter;
+    const matchesCategory = categoryFilter === "all" || t.category === categoryFilter;
     return matchesSearch && matchesType && matchesCategory;
   });
 
-  const openAdd = () => {
-    setEditingTransaction(null);
-    setQuickPrefill(null);
-    setModalOpen(true);
-  };
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const openAdd          = () => { setEditingTransaction(null); setQuickPrefill(null); setModalOpen(true); };
+  const openEdit         = (t: Transaction) => { setEditingTransaction(t); setQuickPrefill(null); setModalOpen(true); };
+  const openFromTemplate = (tpl: TxTemplate) => { setEditingTransaction(null); setQuickPrefill(tpl); setModalOpen(true); };
 
-  const openEdit = (t: Transaction) => {
-    setEditingTransaction(t);
-    setQuickPrefill(null);
-    setModalOpen(true);
-  };
-
-  const openFromTemplate = (tpl: TxTemplate) => {
-    setEditingTransaction(null);
-    setQuickPrefill(tpl);
-    setModalOpen(true);
-  };
+  const monthLabel = format(currentMonth, "MMMM yyyy");
 
   return (
     <DashboardLayout>
-      {/* Page header */}
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          PAGE HEADER
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div className="flex items-start justify-between mb-10 flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">Finances</h1>
-          <p className="text-muted-foreground mt-1">
-            Track income, expenses, and transfers.
+          <p className="text-muted-foreground mt-1.5">
+            Track income, expenses, and transfers across the academy.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 pt-1">
           <Button variant="outline" onClick={() => setTransferOpen(true)}>
             <ArrowRightLeft className="w-4 h-4 mr-2" />
             Transfer Money
@@ -260,256 +267,234 @@ const Finances = () => {
         </div>
       </div>
 
-      {/* Summary cards — 4 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Income */}
-        <Card className="border-l-4 border-l-primary">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Income — {format(currentMonth, "MMM yyyy")}
-            </CardTitle>
-            <Banknote className="w-5 h-5 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(monthlyIncome)}</p>
-          </CardContent>
-        </Card>
+      {/* ══════════════════════════════════════════════════════════════════════
+          OVERVIEW — stat cards + chart
+      ══════════════════════════════════════════════════════════════════════ */}
 
-        {/* Expenses */}
-        <Card className="border-l-4 border-l-destructive">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Expenses — {format(currentMonth, "MMM yyyy")}
-            </CardTitle>
-            <CreditCard className="w-5 h-5 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(monthlyExpenses)}</p>
-          </CardContent>
-        </Card>
-
-        {/* Caisse balance */}
-        <Card className="border-l-4 border-l-gold">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Balance (Caisse)
-            </CardTitle>
-            <Wallet className="w-5 h-5 text-gold" />
-          </CardHeader>
-          <CardContent>
-            <p
-              className={`text-2xl font-bold ${
-                caisseBalance >= 0 ? "" : "text-destructive"
-              }`}
-            >
-              {formatCurrency(caisseBalance)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">All-time caisse balance</p>
-          </CardContent>
-        </Card>
-
-        {/* Cash Deposits (transfers from caisse this month) */}
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Cash Deposits — {format(currentMonth, "MMM yyyy")}
-            </CardTitle>
-            <Landmark className="w-5 h-5 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(monthlyCashDeposits)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Transferred from caisse</p>
-          </CardContent>
-        </Card>
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+        <StatCard
+          title="Income"
+          amount={monthlyIncome}
+          context={monthLabel}
+          icon={<Banknote className="w-4 h-4 text-primary" />}
+          accentClass="border-l-primary"
+        />
+        <StatCard
+          title="Expenses"
+          amount={monthlyExpenses}
+          context={monthLabel}
+          icon={<CreditCard className="w-4 h-4 text-destructive" />}
+          accentClass="border-l-destructive"
+        />
+        <StatCard
+          title="Cash Balance"
+          amount={caisseBalance}
+          context="All-time caisse"
+          icon={<Wallet className="w-4 h-4 text-gold" />}
+          accentClass="border-l-gold"
+          amountClass={caisseBalance < 0 ? "text-destructive" : ""}
+        />
+        <StatCard
+          title="Cash Deposits"
+          amount={monthlyCashDeposits}
+          context={`Transferred from caisse · ${monthLabel}`}
+          icon={<Landmark className="w-4 h-4 text-blue-500" />}
+          accentClass="border-l-blue-500"
+        />
       </div>
 
-      {/* 6-month bar chart */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <TrendingUp className="w-5 h-5 text-gold" />
-            Last 6 Months Overview
+      {/* 6-month chart */}
+      <Card className="mb-12">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            <TrendingUp className="w-4 h-4" />
+            6-Month Trend
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={220}>
+        <CardContent className="pt-2 pb-4">
+          <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v} TND`} width={80} />
+              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}`} width={64} />
               <Tooltip formatter={(value: number) => formatCurrency(value)} />
-              <Legend />
-              <Bar dataKey="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              <Legend wrapperStyle={{ paddingTop: 12 }} />
+              <Bar dataKey="Income"   fill="#22c55e" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="Expenses" fill="#ef4444" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Quick Add templates */}
-      <QuickTransactionBar onUse={openFromTemplate} activeBranch={activeBranch} />
-
-      {/* Transaction list */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <CardTitle className="text-base">Transactions</CardTitle>
-            {/* Month navigator */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <span className="text-sm font-medium w-32 text-center">
-                {format(currentMonth, "MMMM yyyy")}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
+      {/* ══════════════════════════════════════════════════════════════════════
+          MONTHLY SECTION — single month navigator governs everything below
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div className="flex items-center justify-between mb-6 pb-5 border-b border-border">
+        <div className="flex items-center gap-2.5">
+          <CalendarDays className="w-5 h-5 text-muted-foreground" />
+          <div>
+            <p className="text-base font-semibold text-foreground leading-tight">
+              {monthLabel}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Transactions · Group payments · Member dues
+            </p>
           </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm font-medium min-w-[128px] text-center px-3 py-1.5 rounded-md bg-muted">
+            {monthLabel}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search description or account..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9"
-              />
+      {/* Quick Add templates */}
+      <div className="mb-5">
+        <QuickTransactionBar onUse={openFromTemplate} activeBranch={activeBranch} />
+      </div>
+
+      {/* ── Transaction list ─────────────────────────────────────────────── */}
+      <Card className="mb-6">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <CardTitle className="text-base font-semibold">Transactions</CardTitle>
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-2 flex-1 sm:max-w-xl">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                />
+              </div>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-32 h-8 text-sm">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="income">{TRANSACTION_TYPE_LABELS.income}</SelectItem>
+                  <SelectItem value="expense">{TRANSACTION_TYPE_LABELS.expense}</SelectItem>
+                  <SelectItem value="transfer">{TRANSACTION_TYPE_LABELS.transfer}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-44 h-8 text-sm">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {TRANSACTION_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {TRANSACTION_CATEGORY_LABELS[c as TransactionCategory]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-36 h-9">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                <SelectItem value="income">{TRANSACTION_TYPE_LABELS.income}</SelectItem>
-                <SelectItem value="expense">{TRANSACTION_TYPE_LABELS.expense}</SelectItem>
-                <SelectItem value="transfer">{TRANSACTION_TYPE_LABELS.transfer}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-48 h-9">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {TRANSACTION_CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {TRANSACTION_CATEGORY_LABELS[c as TransactionCategory]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="pt-0 px-0 pb-0">
           {isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">Loading…</div>
+            <p className="text-center py-16 text-muted-foreground text-sm">Loading…</p>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              No transactions found for this period.
-            </div>
+            <p className="text-center py-16 text-muted-foreground text-sm">
+              No transactions for this period.
+            </p>
           ) : (
+            /* Single table with sticky thead inside a scrollable div */
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Category / Accounts</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-              </Table>
-              <div className="overflow-y-auto max-h-[280px]">
+              <div className="overflow-y-auto max-h-[420px]">
                 <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">
+                    <TableRow>
+                      <TableHead className="pl-6">Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Category / Accounts</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right pr-6">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {filtered.map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      <TableRow key={t.id} className="group">
+                        <TableCell className="pl-6 text-sm text-muted-foreground whitespace-nowrap">
                           {format(parseISO(t.date), "dd/MM/yyyy")}
                         </TableCell>
 
-                        {/* Type badge */}
                         <TableCell>
                           {t.type === "transfer" ? (
-                            <Badge
-                              variant="outline"
-                              className="border-blue-400 text-blue-600 gap-1"
-                            >
+                            <Badge variant="outline" className="border-blue-400 text-blue-600 gap-1 text-xs">
                               <ArrowRightLeft className="w-3 h-3" />
                               Transfer
                             </Badge>
                           ) : (
                             <Badge
                               variant={t.type === "income" ? "default" : "destructive"}
+                              className="text-xs"
                             >
                               {TRANSACTION_TYPE_LABELS[t.type]}
                             </Badge>
                           )}
                         </TableCell>
 
-                        {/* Category or from→to for transfers */}
                         <TableCell className="text-sm">
                           {t.type === "transfer" ? (
                             <span className="text-muted-foreground">
-                              {ACCOUNT_LABELS[t.from_account ?? ""] ?? t.from_account}{" "}
-                              →{" "}
+                              {ACCOUNT_LABELS[t.from_account ?? ""] ?? t.from_account}
+                              {" → "}
                               {ACCOUNT_LABELS[t.to_account ?? ""] ?? t.to_account}
                             </span>
-                          ) : (
-                            t.category
-                              ? TRANSACTION_CATEGORY_LABELS[t.category]
-                              : "—"
-                          )}
+                          ) : t.category ? (
+                            TRANSACTION_CATEGORY_LABELS[t.category]
+                          ) : "—"}
                         </TableCell>
 
-                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                        <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
                           {t.description || "—"}
                         </TableCell>
 
-                        {/* Amount — neutral for transfers */}
-                        <TableCell
-                          className={`text-right font-semibold ${
-                            t.type === "income"
-                              ? "text-green-600"
-                              : t.type === "expense"
-                              ? "text-destructive"
-                              : "text-blue-600"
-                          }`}
-                        >
-                          {t.type === "income"
-                            ? `+${formatCurrency(t.amount)}`
-                            : t.type === "expense"
-                            ? `-${formatCurrency(t.amount)}`
-                            : formatCurrency(t.amount)}
+                        <TableCell className={`text-right font-semibold tabular-nums ${
+                          t.type === "income"   ? "text-green-600"
+                          : t.type === "expense" ? "text-destructive"
+                          : "text-blue-600"
+                        }`}>
+                          {t.type === "income"  ? `+${formatCurrency(t.amount)}`
+                           : t.type === "expense" ? `-${formatCurrency(t.amount)}`
+                           : formatCurrency(t.amount)}
                         </TableCell>
 
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {/* Only income/expense can be edited (transfers are immutable receipts) */}
+                        <TableCell className="text-right pr-6">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             {t.type !== "transfer" && (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => openEdit(t)}
-                                className="text-muted-foreground hover:text-foreground"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
                               >
-                                <Pencil className="w-4 h-4" />
+                                <Pencil className="w-3.5 h-3.5" />
                               </Button>
                             )}
                             <AlertDialog>
@@ -517,17 +502,16 @@ const Finances = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="text-destructive hover:text-destructive"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Are you sure you want to delete this transaction? This
-                                    action cannot be undone.
+                                    Are you sure? This action cannot be undone.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -553,36 +537,28 @@ const Finances = () => {
         </CardContent>
       </Card>
 
-      {/* Group payments tracker for the viewed month */}
-      <div className="mt-8">
+      {/* ── Group & member payment trackers ──────────────────────────────── */}
+      <div className="space-y-6">
         <GroupPaymentsSection currentMonth={currentMonth} activeBranch={activeBranch} />
-      </div>
-
-      {/* Member payments for the viewed month */}
-      <div className="mt-8">
         <MemberPaymentsSection currentMonth={currentMonth} activeBranch={activeBranch} />
       </div>
 
-      {/* Add / Edit transaction */}
+      {/* ── Modals ───────────────────────────────────────────────────────── */}
       <TransactionModal
         open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEditingTransaction(null);
-          setQuickPrefill(null);
-        }}
+        onClose={() => { setModalOpen(false); setEditingTransaction(null); setQuickPrefill(null); }}
         transaction={editingTransaction}
         prefill={quickPrefill}
         defaultDate={getDefaultDate(currentMonth)}
         activeBranch={activeBranch}
       />
 
-      {/* Transfer money */}
       <TransferModal
         open={transferOpen}
         onClose={() => setTransferOpen(false)}
         activeBranch={activeBranch}
       />
+
     </DashboardLayout>
   );
 };
