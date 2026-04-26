@@ -689,118 +689,45 @@ const PlayerProfile = () => {
         </div>
       </div>
 
-      {/* ── Enrollment ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        {/* Package card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <PackageIcon className="w-4 h-4 text-gold" />
-              Package Enrollment
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {activeAssignment ? (
-              <div className="space-y-2">
-                <p className="font-medium text-sm">
-                  {(activeAssignment.package as Package)?.name ?? "—"}
-                </p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <DollarSign className="w-3 h-3" />
-                    {formatCurrency((activeAssignment.package as Package)?.price ?? 0)}
-                  </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <CalendarRange className="w-3 h-3" />
-                    {(activeAssignment.package as Package)?.end_date
-                      ? `Until ${format(parseISO((activeAssignment.package as Package).end_date), "dd/MM/yyyy")}`
-                      : "—"}
-                  </span>
-                </div>
-                {canEdit && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-1"
-                    onClick={() => setEnrollModal(true)}
-                  >
-                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                    Change Package
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Not enrolled in any package.</p>
-                {canEdit && (
-                  <Button
-                    variant="gold"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setEnrollModal(true)}
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />
-                    Enroll in Package
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* ── Enrollment strip ── */}
+      <div className="flex flex-wrap gap-x-6 gap-y-2 mb-7 px-1">
+        {/* Package */}
+        <div className="flex items-center gap-2 text-sm">
+          <PackageIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <span className="text-muted-foreground">Package:</span>
+          {activeAssignment
+            ? <span className="font-medium">{(activeAssignment.package as Package)?.name}</span>
+            : <span className="text-muted-foreground italic">none</span>
+          }
+          {canEdit && (
+            <button
+              onClick={() => setEnrollModal(true)}
+              className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+              title={activeAssignment ? "Change package" : "Enroll in package"}
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
+        </div>
 
-        {/* Group card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <Users className="w-4 h-4 text-gold" />
-              Training Group
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {group ? (
-              <div className="space-y-2">
-                <p className="font-medium text-sm">{group.name}</p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <DollarSign className="w-3 h-3" />
-                    {formatCurrency(group.monthly_fee)}/month
-                  </span>
-                  {group.description && (
-                    <span className="text-xs text-muted-foreground line-clamp-1">
-                      {group.description}
-                    </span>
-                  )}
-                </div>
-                {canEdit && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-1"
-                    onClick={() => setGroupModal(true)}
-                  >
-                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                    Change Group
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Not assigned to any group.</p>
-                {canEdit && (
-                  <Button
-                    variant="gold"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setGroupModal(true)}
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />
-                    Assign to Group
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Group */}
+        <div className="flex items-center gap-2 text-sm">
+          <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <span className="text-muted-foreground">Group:</span>
+          {group
+            ? <span className="font-medium">{group.name}</span>
+            : <span className="text-muted-foreground italic">none</span>
+          }
+          {canEdit && (
+            <button
+              onClick={() => setGroupModal(true)}
+              className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+              title={group ? "Change group" : "Assign to group"}
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
